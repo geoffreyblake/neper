@@ -175,7 +175,9 @@ struct control_plane {
         struct options *opts;
         struct callbacks *cb;
         int num_incidents;
-        int ctrl_conn;
+        struct host *hosts;
+        int *ctrl_conn;
+        int num_hosts;
         int ctrl_port;
 };
 
@@ -193,10 +195,19 @@ struct control_plane* control_plane_create(struct options *opts,
 void control_plane_start(struct control_plane *cp, struct addrinfo **ai)
 {
         if (cp->opts->client) {
-                cp->ctrl_conn = ctrl_connect(cp->opts->host,
-                                             cp->opts->control_port, ai,
-                                             cp->opts, cp->cb);
-                LOG_INFO(cp->cb, "connected to control port");
+                // This needs to be updated to connect to multiple hosts
+                cp->num_hosts = hosts_len(cp->opts->host);
+                cp->hosts = cp->opts->host;
+                cp->ctrl_conn = (int*)malloc(cp->num_hosts * sizeof(int));
+
+                for (int i = 0; i < cp->num_hosts; i++) {
+                        cp->ctrl_conn[i] = ctrl_connect(cp->hosts[i].host_name,
+                                                        cp->hosts[i].ctrl_port, &ai[i],
+                                                        cp->opts, cp->cb);
+                        LOG_INFO(cp->cb, "connected to control port on %s:%d", cp->hosts[i].host_name,
+                                 cp->hosts[i].ctrl_port);
+                }
+                
         } else {
                 cp->ctrl_port = ctrl_listen(NULL, cp->opts->control_port, ai,
                                             cp->opts, cp->cb);
@@ -243,9 +254,11 @@ void control_plane_wait_until_done(struct control_plane *cp)
 void control_plane_stop(struct control_plane *cp)
 {
         if (cp->opts->client) {
-                ctrl_notify_server(cp->ctrl_conn, cp->opts->magic, cp->cb);
+            for (int i = 0; i < cp->num_hosts; i++) {
+                ctrl_notify_server(cp->ctrl_conn[i], cp->opts->magic, cp->cb);
                 LOG_INFO(cp->cb, "notified server to exit");
-                do_close(cp->ctrl_conn);
+                do_close(cp->ctrl_conn[i]);
+            }
         }
 }
 

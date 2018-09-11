@@ -87,7 +87,9 @@ int main(int argc, char **argv)
         DEFINE_FLAG_PARSER(fp, max_pacing_rate, parse_max_pacing_rate);
         DEFINE_FLAG(fp, unsigned long, delay,           0,       'D', "Nanosecond delay between each send()/write()");
         DEFINE_FLAG(fp, const char *,  local_host,      NULL,    'L', "Local hostname or IP address");
-        DEFINE_FLAG(fp, const char *,  host,            NULL,    'H', "Server hostname or IP address");
+        DEFINE_FLAG(fp, struct host *, host,       NULL,    'H', "List of server hostnames or IP addresses with ports (IP:CPort/DPort,IP:CPort/DPort)");
+        DEFINE_FLAG_PARSER(fp, host, parse_hosts);
+        DEFINE_FLAG_PRINTER(fp, host, print_hosts);
         DEFINE_FLAG(fp, const char *,  control_port,    "12866", 'C', "Server control port");
         DEFINE_FLAG(fp, const char *,  port,            "12867", 'P', "Server data port");
         DEFINE_FLAG(fp, const char *,  all_samples,     NULL,    'A', "Print all samples? If yes, this is the output file name");

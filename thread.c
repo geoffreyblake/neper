@@ -66,11 +66,11 @@ void start_worker_threads(struct options *opts, struct callbacks *cb,
                           struct thread *t, void *(*thread_func)(void *),
                           pthread_barrier_t *ready, struct timespec *time_start,
                           pthread_mutex_t *time_start_mutex,
-                          struct rusage *rusage_start, struct addrinfo *ai)
+                          struct rusage *rusage_start, struct addrinfo **ai, size_t ai_sz)
 {
         cpu_set_t *cpuset;
         pthread_attr_t attr;
-        int s, i, num_cores = 1;
+        int s, i, j, num_cores = 1;
 
         cpuset = calloc(CPU_SETSIZE, sizeof(cpu_set_t));
         if (!cpuset)
@@ -88,7 +88,10 @@ void start_worker_threads(struct options *opts, struct callbacks *cb,
 
         for (i = 0; i < opts->num_threads; i++) {
                 t[i].index = i;
-                t[i].ai = copy_addrinfo(ai);
+                for (j = 0; j < ai_sz; j++) {
+                    t[i].ai[j] = copy_addrinfo(ai[j]);
+                }
+                t[i].num_hosts = ai_sz;
                 t[i].stop_efd = eventfd(0, 0);
                 if (t[i].stop_efd == -1)
                         PLOG_FATAL(cb, "eventfd");
@@ -175,7 +178,16 @@ int run_main_thread(struct options *opts, struct callbacks *cb,
         struct rusage rusage_start; // updated when first packet comes
         struct rusage rusage_end; // local to this function, never pass out
 
-        struct addrinfo *ai;
+        // Create enough addrinfo structs for all the servers we'll connect to
+        int num_hosts = 1;
+        struct addrinfo **ai = NULL;
+        if (opts->client) {
+                num_hosts = hosts_len(opts->host);
+                ai = (struct addrinfo **)malloc(num_hosts*sizeof(struct addrinfo *));
+        } else {
+                ai = (struct addrinfo **)malloc(sizeof(struct addrinfo *));
+        }
+
         struct thread *ts; // worker threads
         struct control_plane *cp;
 
@@ -184,12 +196,17 @@ int run_main_thread(struct options *opts, struct callbacks *cb,
                 return 0;
 
         cp = control_plane_create(opts, cb);
-        control_plane_start(cp, &ai);
+        control_plane_start(cp, ai);
 
         // start threads *after* control plane is up, to reuse addrinfo.
         ts = calloc(opts->num_threads, sizeof(struct thread));
+        // Allocate the addrinfo array
+        int i = 0;
+        for (; i < opts->num_threads; i++) {
+                ts[i].ai = calloc(num_hosts, sizeof(struct addrinfo *));
+        }
         start_worker_threads(opts, cb, ts, thread_func, &ready_barrier,
-                             &time_start, &time_start_mutex, &rusage_start, ai);
+                             &time_start, &time_start_mutex, &rusage_start, ai, num_hosts);
         free(ai);
         LOG_INFO(cb, "started worker threads");
 

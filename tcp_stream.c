@@ -134,11 +134,11 @@ write_again:
         }
 }
 
-static void client_connect(int flow_id, int epfd, struct thread *t)
+static void client_connect(int flow_id, int epfd, struct thread *t, int j)
 {
         struct options *opts = t->opts;
         struct callbacks *cb = t->cb;
-        struct addrinfo *ai = t->ai;
+        struct addrinfo *ai = t->ai[j];
         struct flow *flow;
         int fd;
 
@@ -167,7 +167,7 @@ static void run_client(struct thread *t)
                                                          t->index);
         struct callbacks *cb = t->cb;
         struct epoll_event *events;
-        int epfd, i;
+        int epfd, i, j;
         char *buf;
 
         LOG_INFO(cb, "flows_in_this_thread=%d", flows_in_this_thread);
@@ -176,8 +176,15 @@ static void run_client(struct thread *t)
                 PLOG_FATAL(cb, "epoll_create1");
         LOG_INFO(cb, "t->stop_efd=%d", t->stop_efd);
         epoll_add_or_die(epfd, t->stop_efd, EPOLLIN, cb);
-        for (i = 0; i < flows_in_this_thread; i++)
-                client_connect(i, epfd, t);
+        j = t->num_hosts % t->index;
+        for (i = 0; i < flows_in_this_thread; i++) {
+                client_connect(i, epfd, t, j);
+                if (j < t->num_hosts - 1) {
+                    j++;
+                } else {
+                    j = 0;
+                }
+        }
         events = calloc(opts->maxevents, sizeof(struct epoll_event));
         buf = malloc(opts->buffer_size);
         if (!buf)
@@ -204,7 +211,7 @@ static void run_server(struct thread *t)
 {
         struct options *opts = t->opts;
         struct callbacks *cb = t->cb;
-        struct addrinfo *ai = t->ai;
+        struct addrinfo *ai = t->ai[0];
         struct epoll_event *events;
         int fd_listen, epfd;
         char *buf;
@@ -250,11 +257,16 @@ static void run_server(struct thread *t)
 static void *worker_thread(void *arg)
 {
         struct thread *t = arg;
-        reset_port(t->ai, atoi(t->opts->port), t->cb);
-        if (t->opts->client)
+        if (t->opts->client) {
+                int i = 0;
+                for (i = 0; i < t->num_hosts; i++) {
+                        reset_port(t->ai[i], atoi(t->opts->host[i].data_port), t->cb);
+                }
                 run_client(t);
-        else
+        } else {
+                reset_port(t->ai[0], atoi(t->opts->port), t->cb);
                 run_server(t);
+        }
         return NULL;
 }
 

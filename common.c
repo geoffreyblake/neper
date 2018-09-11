@@ -78,6 +78,90 @@ struct addrinfo *do_getaddrinfo(const char *host, const char *port, int flags,
         return result;
 }
 
+int hosts_len(const struct host *array)
+{
+        int i = 0;
+        if (array == NULL) {
+                return i;
+        }
+
+        while (array[i].host_name != NULL) {
+                i++;
+        }
+        return i;
+}
+
+void parse_hosts(char *str, void *out, struct callbacks *cb)
+{
+        struct host *host_array;
+
+        if (NULL == str) {
+                LOG_FATAL(cb, "No hosts passed in to connect to");
+        }
+
+        // Assume our strings will not have whitespace we have to clean-up
+        unsigned num_hosts = 1;
+        char *fch = strchr(str, ',');
+        while (NULL != fch) {
+                num_hosts++;
+                fch = strchr(fch + 1, ',');
+        }
+
+        host_array = (struct host*)malloc((num_hosts + 1) * sizeof(struct host));
+        char **tmp_bufs = (char **)malloc(num_hosts * sizeof(char *));
+
+        // Get all our strings representing hosts and ports
+        char *tmp_str = strdup(str);
+        char *p = strtok(tmp_str, ",");
+        unsigned idx = 0;
+        while (p != NULL) {
+                tmp_bufs[idx] = p;
+                idx++;
+                p = strtok(NULL, ",");
+        }
+
+        // Go through all the strings and parse out what we need
+        unsigned i = 0;
+        for (i = 0; i < num_hosts; i++) {
+                char *h = strtok(tmp_bufs[i], ":");
+                char *cport = strtok(NULL, "/");
+                char *dport = strtok(NULL, "/");
+
+                if (cport == NULL || dport == NULL || h == NULL) {
+                        LOG_FATAL(cb, "bad host format %s, should be host:port/port", tmp_bufs[i]);
+                }
+
+                host_array[i] = (struct host){ .host_name = strdup(h),
+                                  .ctrl_port = strdup(cport),
+                                  .data_port = strdup(dport) };
+        }
+        // Put a null-terminator at the end of our hosts array to let other 
+        // code figure how many hosts exist
+        host_array[num_hosts] = (struct host){ .host_name = NULL, 
+                                           .ctrl_port = NULL,
+                                           .data_port = NULL };
+
+        *(struct host**)out = host_array; 
+        free(tmp_str);
+        free(tmp_bufs);
+}
+
+void print_hosts(const char *name, const void *var, struct callbacks *cb)
+{
+        const struct host *host = *(struct host**)var;
+        char b[128] = "";
+        char s[1024] = "";
+
+        int num = hosts_len(host);
+
+        for (int i = 0; i < num; i++) {
+                sprintf(b, "%s c:%s d:%s\n", host[i].host_name, host[i].ctrl_port, host[i].data_port);
+                strcat(s, b);
+        }
+
+        PRINT(cb, name, "%s", s);
+}
+
 long long parse_rate(const char *str, struct callbacks *cb)
 {
         const struct rate_conversion *conv;

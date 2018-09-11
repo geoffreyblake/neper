@@ -85,4 +85,8 @@ void parse_max_pacing_rate(char *arg, void *out, struct callbacks *cb);
 
 int create_suicide_timeout(int sec_to_suicide);
 
+void parse_hosts(char *str, void *out, struct callbacks *cb);
+void print_hosts(const char *name, const void *var, struct callbacks *cb);
+int hosts_len(const struct host *array);
+
 #endif

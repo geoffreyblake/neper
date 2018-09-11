@@ -131,25 +131,25 @@ static void *buf_alloc(struct options *opts)
         return calloc(alloc_size, sizeof(char));
 }
 
-static void client_connect(int i, int epfd, struct thread *t)
+static void client_connect(int i, int epfd, struct thread *t, int j)
 {
         struct options *opts = t->opts;
         struct callbacks *cb = t->cb;
-        struct addrinfo *ai = t->ai;
+        struct addrinfo *ai = t->ai[j];
         struct flow *flow;
-        int fd;
+        int fd; 
 
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (fd == -1)
-                PLOG_FATAL(cb, "socket");
+            PLOG_FATAL(cb, "socket");
         if (opts->min_rto)
-                set_min_rto(fd, opts->min_rto, cb);
+            set_min_rto(fd, opts->min_rto, cb);
         if (opts->debug)
-                set_debug(fd, 1, cb);
+            set_debug(fd, 1, cb);
         if (opts->local_host)
-                set_local_host(fd, opts, cb);
+            set_local_host(fd, opts, cb);
         if (do_connect(fd, ai->ai_addr, ai->ai_addrlen))
-                PLOG_FATAL(cb, "do_connect");
+            PLOG_FATAL(cb, "do_connect");
 
         flow = addflow(t->index, epfd, fd, i, EPOLLOUT, opts, cb);
         flow->bytes_to_write = opts->request_size;
@@ -192,11 +192,11 @@ static void run_client(struct thread *t)
 {
         struct options *opts = t->opts;
         const int flows_in_this_thread = flows_in_thread(opts->num_flows,
-                                                         opts->num_threads,
+                                                         opts->num_threads, 
                                                          t->index);
         struct callbacks *cb = t->cb;
         struct epoll_event *events;
-        int epfd, i;
+        int epfd, i, j;
         char *buf;
 
         LOG_INFO(cb, "flows_in_this_thread=%d", flows_in_this_thread);
@@ -204,8 +204,17 @@ static void run_client(struct thread *t)
         if (epfd == -1)
                 PLOG_FATAL(cb, "epoll_create1");
         epoll_add_or_die(epfd, t->stop_efd, EPOLLIN, cb);
-        for (i = 0; i < flows_in_this_thread; i++)
-                client_connect(i, epfd, t);
+        // Round robin the hosts to connect to, starting with an offset
+        j = t->index % t->num_hosts;
+        for (i = 0; i < flows_in_this_thread; i++) {
+                client_connect(i, epfd, t, j);
+                
+                if (j < t->num_hosts - 1) {
+                    j++;
+                } else {
+                    j = 0;
+                }
+        }
         events = calloc(opts->maxevents, sizeof(struct epoll_event));
         buf = buf_alloc(opts);
         pthread_barrier_wait(t->ready);
@@ -310,7 +319,7 @@ static void run_server(struct thread *t)
 {
         struct options *opts = t->opts;
         struct callbacks *cb = t->cb;
-        struct addrinfo *ai = t->ai;
+        struct addrinfo *ai = t->ai[0];
         struct epoll_event *events;
         int fd_listen, epfd;
         char *buf;
@@ -352,11 +361,16 @@ static void run_server(struct thread *t)
 static void *thread_start(void *arg)
 {
         struct thread *t = arg;
-        reset_port(t->ai, atoi(t->opts->port), t->cb);
-        if (t->opts->client)
+        if (t->opts->client) {
+                int i = 0;
+                for (i = 0; i < t->num_hosts; i++) {
+                        reset_port(t->ai[i], atoi(t->opts->host[i].data_port), t->cb);
+                }
                 run_client(t);
-        else
+        } else {
+                reset_port(t->ai[0], atoi(t->opts->port), t->cb);
                 run_server(t);
+        }
         return NULL;
 }
 

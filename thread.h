@@ -27,7 +27,10 @@ struct thread {
         int index;
         pthread_t id;
         int stop_efd;
-        struct addrinfo *ai;
+        // This needs to be treated as an array of struct addrinfo's now that
+        // we can have multiple clients
+        struct addrinfo **ai;
+        int num_hosts;
         struct sample *samples;
         unsigned long transactions;
         struct options *opts;

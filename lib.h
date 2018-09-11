@@ -20,6 +20,13 @@
 #include <stdbool.h>
 #include "percentiles.h"
 
+struct host
+{
+        char *host_name;
+        char *ctrl_port;
+        char *data_port;
+};
+
 struct callbacks {
         void *logger;
 
@@ -75,7 +82,7 @@ struct options {
         double interval;
         long long max_pacing_rate;
         const char *local_host;
-        const char *host;
+        struct host *host;
         const char *control_port;
         const char *port;
         const char *all_samples;
