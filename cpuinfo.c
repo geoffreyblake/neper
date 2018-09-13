@@ -46,16 +46,18 @@ int get_cpuinfo(struct cpuinfo *cpus, int max_cpus)
         while (n < max_cpus) {
                 while (fscanf(f, "%m[^:]:%m[^\n]\n", &key, &value) == 2) {
                         rtrim(key);
-                        if (strcmp(ltrim(key), "processor") == 0)
+                        if (strcmp(ltrim(key), "processor") == 0) {
                                 sscanf(value, "%d", &cpus[n].processor);
-                        else if (strcmp(ltrim(key), "physical id") == 0)
+                                n++;
+                        } else if (strcmp(ltrim(key), "physical id") == 0) {
                                 sscanf(value, "%d", &cpus[n].physical_id);
-                        else if (strcmp(ltrim(key), "siblings") == 0)
+                        } else if (strcmp(ltrim(key), "siblings") == 0) {
                                 sscanf(value, "%d", &cpus[n].siblings);
-                        else if (strcmp(ltrim(key), "core id") == 0)
+                        } else if (strcmp(ltrim(key), "core id") == 0) {
                                 sscanf(value, "%d", &cpus[n].core_id);
-                        else if (strcmp(ltrim(key), "cpu cores") == 0)
+                        } else if (strcmp(ltrim(key), "cpu cores") == 0) {
                                 sscanf(value, "%d", &cpus[n].cpu_cores);
+                        }
                         free(key);
                         free(value);
                 }
@@ -63,7 +65,6 @@ int get_cpuinfo(struct cpuinfo *cpus, int max_cpus)
                         return -1;
                 if (feof(f))
                         break;
-                n++;
         }
         fclose(f);
         return n;
