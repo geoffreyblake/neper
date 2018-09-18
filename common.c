@@ -342,7 +342,7 @@ retry:
                 }
                 if (do_connect(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
                         break;
-                PLOG_ERROR(cb, "connect");
+                PLOG_ERROR(cb, "connect %s:%s", host, port);
                 do_close(sfd);
         }
         if (rp == NULL) {
@@ -350,7 +350,7 @@ retry:
                         sleep(1);
                         goto retry;
                 }
-                LOG_FATAL(cb, "Could not connect");
+                LOG_FATAL(cb, "Could not connect to %s:%s", host, port);
         }
         *ai = copy_addrinfo(rp);
         freeaddrinfo(result);
