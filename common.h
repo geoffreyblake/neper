@@ -64,6 +64,9 @@ static inline int flows_in_thread(int num_flows, int num_threads, int tid)
 struct addrinfo *do_getaddrinfo(const char *host, const char *port, int flags,
                                 const struct options *opts,
                                 struct callbacks *cb);
+struct addrinfo *do_getaddrinfo_udp(const char *host, const char *port, int flags,
+                                    const struct options *opts,
+                                    struct callbacks *cb);
 long long parse_rate(const char *str, struct callbacks *cb);
 void set_reuseport(int fd, struct callbacks *cb);
 void set_nonblocking(int fd, struct callbacks *cb);
@@ -78,6 +81,8 @@ int do_close(int fd);
 int do_connect(int s, const struct sockaddr *addr, socklen_t addr_len);
 struct addrinfo *copy_addrinfo(struct addrinfo *in);
 void reset_port(struct addrinfo *ai, int port, struct callbacks *cb);
+void reset_port_udp(struct addrinfo **ai, struct host *host,
+                    struct options *options, int flags, struct callbacks *cb);
 int try_connect(const char *host, const char *port, struct addrinfo **ai,
                 struct options *opts, struct callbacks *cb);
 void parse_all_samples(char *arg, void *out, struct callbacks *cb);

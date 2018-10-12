@@ -33,6 +33,7 @@ struct thread {
         int num_hosts;
         struct sample *samples;
         unsigned long transactions;
+        unsigned long sent_transactions;
         struct options *opts;
         struct callbacks *cb;
         int next_flow_id;

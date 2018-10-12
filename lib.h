@@ -97,9 +97,14 @@ struct options {
         int request_size;
         int response_size;
         struct percentiles percentiles;
+
+        /* udp_flood */
+        int burst_size;
+        int packet_size;
 };
 
 int tcp_stream(struct options *opts, struct callbacks *cb);
 int tcp_rr(struct options *opts, struct callbacks *cb);
+int udp_flood(struct options *opts, struct callbacks *cb);
 
 #endif

@@ -52,6 +52,34 @@ static const struct rate_conversion conversions[] = {
         { NULL,  0 }
 };
 
+
+struct addrinfo *do_getaddrinfo_udp(const char *host, const char *port, int flags,
+                                    const struct options *opts,
+                                    struct callbacks *cb)
+{
+        struct addrinfo hints, *result;
+
+        memset(&hints, 0, sizeof(hints));
+        if (opts->ipv4 && !opts->ipv6)
+                hints.ai_family = AF_INET;
+        else if (opts->ipv6 && !opts->ipv4)
+                hints.ai_family = AF_INET6;
+        else
+                hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+        hints.ai_flags = flags;
+        hints.ai_protocol = 0;            /* Any protocol */
+
+        LOG_INFO(cb, "before getaddrinfo");
+        int s = getaddrinfo(host, port, &hints, &result);
+        LOG_INFO(cb, "after getaddrinfo");
+        if (s)
+                LOG_FATAL(cb, "getaddrinfo: %s", gai_strerror(s));
+
+        return result;
+}
+
+
 struct addrinfo *do_getaddrinfo(const char *host, const char *port, int flags,
                                 const struct options *opts,
                                 struct callbacks *cb)
@@ -316,6 +344,13 @@ void reset_port(struct addrinfo *ai, int port, struct callbacks *cb)
                 ((struct sockaddr_in6 *)ai->ai_addr)->sin6_port = htons(port);
         else
                 LOG_FATAL(cb, "invalid sa_family %d", ai->ai_addr->sa_family);
+}
+
+void reset_port_udp(struct addrinfo **ai, struct host *host, struct options *options, int flags, struct callbacks *cb)
+{
+        /* Clear TCP addresses and replace with UDP */
+        freeaddrinfo(*ai);
+        *ai = do_getaddrinfo_udp(host->host_name, host->data_port, flags, options, cb);
 }
 
 int try_connect(const char *host, const char *port, struct addrinfo **ai,

@@ -39,6 +39,8 @@ tcp_rr-objs := tcp_rr_main.o tcp_rr.o $(lib)
 
 tcp_stream-objs := tcp_stream_main.o tcp_stream.o $(lib)
 
+udp_flood-objs := udp_flood_main.o udp_flood.o $(lib)
+
 ext-libs := -lm -lpthread -lrt
 
 tcp_rr: $(tcp_rr-objs)
@@ -47,7 +49,10 @@ tcp_rr: $(tcp_rr-objs)
 tcp_stream: $(tcp_stream-objs)
 	$(CC) -o $@ $^ $(ext-libs)
 
-binaries: tcp_rr tcp_stream
+udp_flood: $(udp_flood-objs)
+	$(CC) -o $@ $^ $(ext-libs)
+
+binaries: tcp_rr tcp_stream udp_flood
 
 clean:
-	rm -f *.o tcp_rr tcp_stream
+	rm -f *.o tcp_rr tcp_stream udp_flood
