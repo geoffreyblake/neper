@@ -7,18 +7,25 @@ neper is a Linux networking performance tool.
 * Collect statistics in a more accurate way.
 * Export statistics to CSV for easier consumption by other tools.
 
-neper currently supports two workloads:
+neper currently supports three workloads:
 
 * `tcp_rr` generates request/response workload (similar to HTTP or RPC) over
   TCP
 * `tcp_stream` generates bulk data transfer workload (similar to FTP or `scp`)
   over TCP
+* `udp_flood` generate batched request/response workload over UDP
 
 neper as a small code base with clean coding style and structure, and is
 easy to extend with new workloads and/or new options.  It can also be embedded
 as a library in a larger application to generate epoll-based workloads.
 
 Disclaimer: This is not an official Google product.
+
+## Dependencies
+
+Since this is a fork of neper, we have extended it in multiple ways and now require
+the CZmq library to be installed to work properly.  The code is not meant to be
+production ready, please be aware that extensions may be poorly documented and buggy.
 
 ## Basic usage
 
@@ -199,6 +206,11 @@ Note that we don't have netperf `TCP_MAERTS` in neper, as you can always
 choose where to specify the `-c` option.  The usage model is basically
 different, as we don't have a daemon (like netserver) either.
 
+### `udp_flood`
+
+`udp_flood` uses UDP and sendmmsg and recvmmsg system calls to allow generation of small
+packet workloads.
+
 ## Options
 
 ### Connectivity options
@@ -310,5 +322,4 @@ be insignificant.  However, the keys are case sensitive.
 ## Contribution guidelines
 
 * C99, avoid compiler-specific extensions.
-* No external dependency.
 * Linux coding style, with tabs expanded to 8 spaces.

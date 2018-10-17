@@ -41,7 +41,7 @@ tcp_stream-objs := tcp_stream_main.o tcp_stream.o $(lib)
 
 udp_flood-objs := udp_flood_main.o udp_flood.o $(lib)
 
-ext-libs := -lm -lpthread -lrt
+ext-libs := -lm -lpthread -lrt -lczmq
 
 tcp_rr: $(tcp_rr-objs)
 	$(CC) -o $@ $^ $(ext-libs)

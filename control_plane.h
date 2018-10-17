@@ -20,14 +20,26 @@
 struct addrinfo;
 struct callbacks;
 struct control_plane;
+struct peer_control;
+struct host;
 struct options;
+struct thread;
 
 struct control_plane* control_plane_create(struct options *opts,
                                            struct callbacks *cb);
+struct peer_control* peer_control_create(struct options *opts,
+                                         struct callbacks *cb);
+
 void control_plane_start(struct control_plane *cp, struct addrinfo **ai);
 void control_plane_wait_until_done(struct control_plane *cp);
 void control_plane_stop(struct control_plane *cp);
 int control_plane_incidents(struct control_plane *cp);
 void control_plane_destroy(struct control_plane *cp);
+
+struct host* peer_control_start(struct peer_control *pc);
+void peer_control_wait_for_signal(struct peer_control *pc);
+void peer_control_wait_for_stats(struct peer_control *pc, struct thread *tinfo);
+void peer_control_stop(struct peer_control *pc);
+void peer_control_destroy(struct peer_control *pc);
 
 #endif

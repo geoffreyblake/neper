@@ -43,6 +43,9 @@ static void check_options(struct options *opts, struct callbacks *cb)
         CHECK(cb, opts->listen_backlog <= procfile_int(PROCFILE_SOMAXCONN, cb),
               "listen() backlog cannot exceed " PROCFILE_SOMAXCONN);
         CHECK(cb, opts->packet_size >= 8, "packet_size cannot be less than 8");
+        if (opts->rr_hosts) {
+                CHECK(cb, opts->num_threads == hosts_len(opts->host), "To round-robin hosts, cannot have more threads than connections");
+        }
 }
 
 int main(int argc, char **argv)
@@ -59,6 +62,7 @@ int main(int argc, char **argv)
         DEFINE_FLAG(fp, int,          maxevents,     1000,     0,  "Number of epoll events per epoll_wait() call");
         DEFINE_FLAG(fp, int,          num_threads,   1,       'T', "Number of threads");
         DEFINE_FLAG(fp, int,          num_clients,   1,        0,  "Number of clients");
+        DEFINE_FLAG(fp, int,          rr_hosts,      0,        0,  "Each host is contacted exactly by one thread");
         DEFINE_FLAG(fp, int,          test_length,   10,      'l', "Test length in seconds");
         DEFINE_FLAG(fp, int,          packet_size,   8,       'S', "Number of bytes per packet from client to server");
         DEFINE_FLAG(fp, int,          burst_size,    32,      'b', "Number of UDP packets to send at once");
@@ -80,6 +84,11 @@ int main(int argc, char **argv)
         DEFINE_FLAG_PARSER(fp, host, parse_hosts);
         DEFINE_FLAG_PRINTER(fp, host, print_hosts);
         DEFINE_FLAG(fp, const char *, control_port,  "12866", 'C', "Server control port");
+        DEFINE_FLAG(fp, const char *, peer_port, "12867", 'g', "Port to use to communicate between clients to gang then up");
+        DEFINE_FLAG(fp, bool, slave_mode, false, 0, "Is this a slave node or master node for clients");
+        DEFINE_FLAG(fp, struct host *, slaves, NULL, 0, "List of slave hostnames to contact (IP:Port)");
+        DEFINE_FLAG_PARSER(fp, slaves, parse_slaves);
+        DEFINE_FLAG_PRINTER(fp, slaves, print_slaves);
         DEFINE_FLAG(fp, const char *, port,          "12867", 'P', "Server data port");
         DEFINE_FLAG(fp, const char *, all_samples,   NULL,    'A', "Print all samples? If yes, this is the output file name");
         DEFINE_FLAG_HAS_OPTIONAL_ARGUMENT(fp, all_samples);
@@ -96,7 +105,7 @@ int main(int argc, char **argv)
         check_options(&opts, &cb);
         if (opts.suicide_length) {
                 if (create_suicide_timeout(opts.suicide_length)) {
-                        PLOG_FATAL(&cb, "create_suicide_timeout");
+                        NP_PLOG_FATAL(&cb, "create_suicide_timeout");
                         goto exit;
                 }
         }

@@ -34,13 +34,13 @@ void parse_percentiles(char *arg, void *out, struct callbacks *cb)
                 val = strtol(arg, &endptr, 10);
                 if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) ||
                     (errno != 0 && val == 0))
-                        PLOG_FATAL(cb, "strtol");
+                        NP_PLOG_FATAL(cb, "strtol");
                 if (endptr == arg)
                         break;
                 if (val < 0 || val > 100)
-                        LOG_FATAL(cb, "%ld percentile doesn't exist", val);
+                        NP_LOG_FATAL(cb, "%ld percentile doesn't exist", val);
                 p->chosen[val] = true;
-                LOG_INFO(cb, "%ld percentile is chosen", val);
+                NP_LOG_INFO(cb, "%ld percentile is chosen", val);
                 if (*endptr == '\0')
                         break;
                 arg = endptr + 1;

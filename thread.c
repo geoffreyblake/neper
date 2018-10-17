@@ -34,15 +34,15 @@ static int get_cpuset(cpu_set_t *cpuset, struct callbacks *cb)
 
         cpus = calloc(CPU_SETSIZE, sizeof(struct cpuinfo));
         if (!cpus)
-                PLOG_FATAL(cb, "calloc cpus");
+                NP_PLOG_FATAL(cb, "calloc cpus");
         n = get_cpuinfo(cpus, CPU_SETSIZE);
         if (n == -1)
-                PLOG_FATAL(cb, "get_cpuinfo");
+                NP_PLOG_FATAL(cb, "get_cpuinfo");
         if (n == 0)
-                LOG_FATAL(cb, "no cpu found in /proc/cpuinfo");
+                NP_LOG_FATAL(cb, "no cpu found in /proc/cpuinfo");
         num_cores = 0;
         for (i = 0; i < n; i++) {
-                LOG_INFO(cb, "%d\t%d\t%d\t%d\t%d", cpus[i].processor,
+                NP_LOG_INFO(cb, "%d\t%d\t%d\t%d\t%d", cpus[i].processor,
                          cpus[i].physical_id, cpus[i].siblings, cpus[i].core_id,
                          cpus[i].cpu_cores);
                 for (j = 0; j < num_cores; j++) {
@@ -74,14 +74,14 @@ void start_worker_threads(struct options *opts, struct callbacks *cb,
 
         cpuset = calloc(CPU_SETSIZE, sizeof(cpu_set_t));
         if (!cpuset)
-                PLOG_FATAL(cb, "calloc cpuset");
+                NP_PLOG_FATAL(cb, "calloc cpuset");
         s = pthread_barrier_init(ready, NULL, opts->num_threads + 1);
         if (s != 0)
-                LOG_FATAL(cb, "pthread_barrier_init: %s", strerror(s));
+                NP_LOG_FATAL(cb, "pthread_barrier_init: %s", strerror(s));
 
         s = pthread_attr_init(&attr);
         if (s != 0)
-                LOG_FATAL(cb, "pthread_attr_init: %s", strerror(s));
+                NP_LOG_FATAL(cb, "pthread_attr_init: %s", strerror(s));
 
         if (opts->pin_cpu)
                 num_cores = get_cpuset(cpuset, cb);
@@ -94,7 +94,7 @@ void start_worker_threads(struct options *opts, struct callbacks *cb,
                 t[i].num_hosts = ai_sz;
                 t[i].stop_efd = eventfd(0, 0);
                 if (t[i].stop_efd == -1)
-                        PLOG_FATAL(cb, "eventfd");
+                        NP_PLOG_FATAL(cb, "eventfd");
                 t[i].samples = NULL;
                 t[i].opts = opts;
                 t[i].cb = cb;
@@ -108,23 +108,23 @@ void start_worker_threads(struct options *opts, struct callbacks *cb,
                                                         sizeof(cpu_set_t),
                                                         &cpuset[i % num_cores]);
                         if (s != 0) {
-                                LOG_FATAL(cb, "pthread_attr_setaffinity_np: %s",
+                                NP_LOG_FATAL(cb, "pthread_attr_setaffinity_np: %s",
                                           strerror(s));
                         }
                 }
 
                 s = pthread_create(&t[i].id, &attr, thread_func, &t[i]);
                 if (s != 0)
-                        LOG_FATAL(cb, "pthread_create: %s", strerror(s));
+                        NP_LOG_FATAL(cb, "pthread_create: %s", strerror(s));
         }
 
         s = pthread_attr_destroy(&attr);
         if (s != 0)
-                LOG_FATAL(cb, "pthread_attr_destroy: %s", strerror(s));
+                NP_LOG_FATAL(cb, "pthread_attr_destroy: %s", strerror(s));
         free(cpuset);
 
-        pthread_barrier_wait(ready);
-        LOG_INFO(cb, "worker threads are ready");
+        //pthread_barrier_wait(ready);
+        NP_LOG_INFO(cb, "worker threads are ready");
 }
 
 void stop_worker_threads(struct callbacks *cb, int num_threads,
@@ -135,23 +135,23 @@ void stop_worker_threads(struct callbacks *cb, int num_threads,
         // tell them to stop
         for (i = 0; i < num_threads; i++) {
                 if (eventfd_write(t[i].stop_efd, 1))
-                        PLOG_FATAL(cb, "eventfd_write");
+                        NP_PLOG_FATAL(cb, "eventfd_write");
                 else
-                        LOG_INFO(cb, "told thread %d to stop", i);
+                        NP_LOG_INFO(cb, "told thread %d to stop", i);
         }
 
         // wait for them to stop
         for (i = 0; i < num_threads; i++) {
                 s = pthread_join(t[i].id, NULL);
                 if (s != 0)
-                        LOG_FATAL(cb, "pthread_join: %s", strerror(s));
+                        NP_LOG_FATAL(cb, "pthread_join: %s", strerror(s));
                 else
-                        LOG_INFO(cb, "joined thread %d", i);
+                        NP_LOG_INFO(cb, "joined thread %d", i);
         }
 
         s = pthread_barrier_destroy(ready);
         if (s != 0)
-                LOG_FATAL(cb, "pthread_barrier_destroy: %s", strerror(s));
+                NP_LOG_FATAL(cb, "pthread_barrier_destroy: %s", strerror(s));
 }
 
 static void free_worker_threads(int num_threads, struct thread *t)
@@ -177,6 +177,23 @@ int run_main_thread(struct options *opts, struct callbacks *cb,
 
         struct rusage rusage_start; // updated when first packet comes
         struct rusage rusage_end; // local to this function, never pass out
+        struct thread *ts; // worker threads
+        struct control_plane *cp;
+        struct peer_control *pc;
+
+        PRINT(cb, "total_run_time", "%d", opts->test_length);
+        if (opts->dry_run)
+                return 0;
+
+        cp = control_plane_create(opts, cb);
+        pc = peer_control_create(opts, cb);
+        // Start nodes peering together first
+        struct host *h = NULL;
+        h = peer_control_start(pc);
+        // We have the slave peers get their host list from the master
+        if (opts->client && opts->slave_mode) {
+                opts->host = h;
+        }
 
         // Create enough addrinfo structs for all the servers we'll connect to
         int num_hosts = 1;
@@ -188,14 +205,7 @@ int run_main_thread(struct options *opts, struct callbacks *cb,
                 ai = (struct addrinfo **)malloc(sizeof(struct addrinfo *));
         }
 
-        struct thread *ts; // worker threads
-        struct control_plane *cp;
-
-        PRINT(cb, "total_run_time", "%d", opts->test_length);
-        if (opts->dry_run)
-                return 0;
-
-        cp = control_plane_create(opts, cb);
+        // Now peer them to the SUTs
         control_plane_start(cp, ai);
 
         // start threads *after* control plane is up, to reuse addrinfo.
@@ -207,19 +217,25 @@ int run_main_thread(struct options *opts, struct callbacks *cb,
         }
         start_worker_threads(opts, cb, ts, thread_func, &ready_barrier,
                              &time_start, &time_start_mutex, &rusage_start, ai, num_hosts);
+        peer_control_wait_for_signal(pc);
+        // Once all ganged slaves report back, then release worker threads -- does not guarantee perfect release though
+        pthread_barrier_wait(&ready_barrier);
+
         free(ai);
-        LOG_INFO(cb, "started worker threads");
+        NP_LOG_INFO(cb, "started worker threads");
 
         getrusage(RUSAGE_SELF, &rusage_start); // rusage start!
         control_plane_wait_until_done(cp);
         getrusage(RUSAGE_SELF, &rusage_end); // rusage end!
 
         stop_worker_threads(cb, opts->num_threads, ts, &ready_barrier);
-        LOG_INFO(cb, "stopped worker threads");
+        NP_LOG_INFO(cb, "stopped worker threads");
 
         control_plane_stop(cp);
         PRINT(cb, "invalid_secret_count", "%d", control_plane_incidents(cp));
+        peer_control_wait_for_stats(pc, ts);
         control_plane_destroy(cp);
+        peer_control_destroy(pc);
 
         // begin printing rusage
         PRINT(cb, "time_start", "%ld.%09ld", time_start.tv_sec,

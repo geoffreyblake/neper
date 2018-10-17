@@ -84,7 +84,7 @@ static void close_log(void)
         }
 }
 
-enum LOG_LEVEL { FATAL, ERROR, WARNING, INFO };
+enum NP_LOG_LEVEL { FATAL, ERROR, WARNING, INFO };
 
 /* Generic logging function. Thread-safe.
  *
@@ -103,7 +103,7 @@ enum LOG_LEVEL { FATAL, ERROR, WARNING, INFO };
  *   msg              The user-supplied message
  */
 static void logging(const char *file, int line, const char *func,
-                    enum LOG_LEVEL level, const char *fmt, va_list argp)
+                    enum NP_LOG_LEVEL level, const char *fmt, va_list argp)
 {
         char buf[4096], *msg, level_char, *path;
         int size, thread_id;

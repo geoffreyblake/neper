@@ -41,7 +41,7 @@ static void prepend_memblock(struct numlist *lst)
 
         blk = malloc(sizeof(struct memblock));
         if (!blk)
-                PLOG_FATAL(lst->cb, "unable to allocate memblock");
+                NP_PLOG_FATAL(lst->cb, "unable to allocate memblock");
         blk->size = 0;
         blk->next = lst->head;
         lst->head = blk;
@@ -53,7 +53,7 @@ struct numlist *numlist_create(struct callbacks *cb)
 
         lst = malloc(sizeof(struct numlist));
         if (!lst)
-                PLOG_FATAL(cb, "unable to allocate numlist");
+                NP_PLOG_FATAL(cb, "unable to allocate numlist");
         lst->cb = cb;
         lst->head = NULL;
         prepend_memblock(lst);

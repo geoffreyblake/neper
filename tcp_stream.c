@@ -65,7 +65,7 @@ static void server_accept(int fd_listen, int epfd, struct thread *t)
         if (client == -1) {
                 if (errno == EINTR || errno == ECONNABORTED)
                         return;
-                PLOG_ERROR(cb, "accept");
+                NP_PLOG_ERROR(cb, "accept");
                 return;
         }
         flow = addflow(t->index, epfd, client, t->next_flow_id++,
@@ -102,7 +102,7 @@ read_again:
                         num_bytes = read(flow->fd, buf, opts->buffer_size);
                         if (num_bytes == -1) {
                                 if (errno != EAGAIN)
-                                        PLOG_ERROR(cb, "read");
+                                        NP_PLOG_ERROR(cb, "read");
                                 continue;
                         }
                         if (num_bytes == 0) {
@@ -120,7 +120,7 @@ write_again:
                         num_bytes = write(flow->fd, buf, opts->buffer_size);
                         if (num_bytes == -1) {
                                 if (errno != EAGAIN)
-                                        PLOG_ERROR(cb, "write");
+                                        NP_PLOG_ERROR(cb, "write");
                                 continue;
                         }
                         if (opts->delay) {
@@ -144,7 +144,7 @@ static void client_connect(int flow_id, int epfd, struct thread *t, int j)
 
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (fd == -1)
-                PLOG_FATAL(cb, "socket");
+                NP_PLOG_FATAL(cb, "socket");
         if (opts->min_rto)
                 set_min_rto(fd, opts->min_rto, cb);
         if (opts->debug)
@@ -152,7 +152,7 @@ static void client_connect(int flow_id, int epfd, struct thread *t, int j)
         if (opts->local_host)
                 set_local_host(fd, opts, cb);
         if (do_connect(fd, ai->ai_addr, ai->ai_addrlen))
-                PLOG_FATAL(cb, "do_connect");
+                NP_PLOG_FATAL(cb, "do_connect");
 
         flow = addflow(t->index, epfd, fd, flow_id, epoll_events(opts), opts,
                        cb);
@@ -170,13 +170,13 @@ static void run_client(struct thread *t)
         int epfd, i, j;
         char *buf;
 
-        LOG_INFO(cb, "flows_in_this_thread=%d", flows_in_this_thread);
+        NP_LOG_INFO(cb, "flows_in_this_thread=%d", flows_in_this_thread);
         epfd = epoll_create1(0);
         if (epfd == -1)
-                PLOG_FATAL(cb, "epoll_create1");
-        LOG_INFO(cb, "t->stop_efd=%d", t->stop_efd);
+                NP_PLOG_FATAL(cb, "epoll_create1");
+        NP_LOG_INFO(cb, "t->stop_efd=%d", t->stop_efd);
         epoll_add_or_die(epfd, t->stop_efd, EPOLLIN, cb);
-        j = t->num_hosts % t->index;
+        j = t->index % t->num_hosts;
         for (i = 0; i < flows_in_this_thread; i++) {
                 client_connect(i, epfd, t, j);
                 if (j < t->num_hosts - 1) {
@@ -188,7 +188,7 @@ static void run_client(struct thread *t)
         events = calloc(opts->maxevents, sizeof(struct epoll_event));
         buf = malloc(opts->buffer_size);
         if (!buf)
-                PLOG_FATAL(cb, "malloc");
+                NP_PLOG_FATAL(cb, "malloc");
         if (opts->enable_write)
                 fill_random(buf, opts->buffer_size);
         pthread_barrier_wait(t->ready);
@@ -198,7 +198,7 @@ static void run_client(struct thread *t)
                 if (nfds == -1) {
                         if (errno == EINTR)
                                 continue;
-                        PLOG_FATAL(cb, "epoll_wait");
+                        NP_PLOG_FATAL(cb, "epoll_wait");
                 }
                 process_events(t, epfd, events, nfds, -1, buf);
         }
@@ -218,24 +218,24 @@ static void run_server(struct thread *t)
 
         fd_listen = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (fd_listen == -1)
-                PLOG_FATAL(cb, "socket");
+                NP_PLOG_FATAL(cb, "socket");
         set_reuseport(fd_listen, cb);
         set_reuseaddr(fd_listen, 1, cb);
         if (bind(fd_listen, ai->ai_addr, ai->ai_addrlen))
-                PLOG_FATAL(cb, "bind");
+                NP_PLOG_FATAL(cb, "bind");
         if (opts->min_rto)
                 set_min_rto(fd_listen, opts->min_rto, cb);
         if (listen(fd_listen, opts->listen_backlog))
-                PLOG_FATAL(cb, "listen");
+                NP_PLOG_FATAL(cb, "listen");
         epfd = epoll_create1(0);
         if (epfd == -1)
-                PLOG_FATAL(cb, "epoll_create1");
+                NP_PLOG_FATAL(cb, "epoll_create1");
         epoll_add_or_die(epfd, t->stop_efd, EPOLLIN, cb);
         epoll_add_or_die(epfd, fd_listen, EPOLLIN, cb);
         events = calloc(opts->maxevents, sizeof(struct epoll_event));
         buf = malloc(opts->buffer_size);
         if (!buf)
-                PLOG_FATAL(cb, "malloc");
+                NP_PLOG_FATAL(cb, "malloc");
         if (opts->enable_write)
                 fill_random(buf, opts->buffer_size);
         pthread_barrier_wait(t->ready);
@@ -245,7 +245,7 @@ static void run_server(struct thread *t)
                 if (nfds == -1) {
                         if (errno == EINTR)
                                 continue;
-                        PLOG_FATAL(cb, "epoll_wait");
+                        NP_PLOG_FATAL(cb, "epoll_wait");
                 }
                 process_events(t, epfd, events, nfds, fd_listen, buf);
         }
@@ -286,7 +286,7 @@ static void report_stats(struct thread *tinfo)
                 for (p = tinfo[i].samples; p; p = p->next)
                         num_samples++;
         if (num_samples == 0) {
-                LOG_WARN(cb, "no sample collected");
+                NP_LOG_WARN(cb, "no sample collected");
                 return;
         }
         samples = calloc(num_samples, sizeof(struct sample));
@@ -303,7 +303,7 @@ static void report_stats(struct thread *tinfo)
         PRINT(cb, "end_index", "%d", end_index);
         PRINT(cb, "num_samples", "%d", num_samples);
         if (start_index >= end_index) {
-                LOG_WARN(cb, "insufficient number of samples");
+                NP_LOG_WARN(cb, "insufficient number of samples");
                 return;
         }
         start_time = &samples[start_index].timestamp;

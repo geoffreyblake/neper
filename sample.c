@@ -90,14 +90,14 @@ void print_samples(struct percentiles *percentiles, struct sample *samples,
         FILE *csv = fopen(filename, "w");
         if (csv) {
                 int i;
-                LOG_INFO(cb, "successfully opened %s", filename);
+                NP_LOG_INFO(cb, "successfully opened %s", filename);
                 print_sample(csv, percentiles, NULL);
                 for (i = 0; i < num; i++)
                         print_sample(csv, percentiles, &samples[i]);
                 if (fclose(csv))
-                        LOG_ERROR(cb, "fclose: %s", strerror(errno));
+                        NP_LOG_ERROR(cb, "fclose: %s", strerror(errno));
         } else {
-                LOG_ERROR(cb, "fopen(%s): %s", filename, strerror(errno));
+                NP_LOG_ERROR(cb, "fopen(%s): %s", filename, strerror(errno));
         }
 }
 

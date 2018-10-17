@@ -61,7 +61,7 @@ struct interval *interval_create(double interval_in_seconds, struct thread *t)
 
         itv = malloc(sizeof(*itv));
         if (!itv)
-                PLOG_FATAL(t->cb, "malloc");
+                NP_PLOG_FATAL(t->cb, "malloc");
         itv->seconds = interval_in_seconds;
         itv->time_start = t->time_start;
         itv->time_start_mutex = t->time_start_mutex;

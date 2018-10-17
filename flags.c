@@ -73,7 +73,7 @@ struct flags_parser* flags_parser_create(struct options *opts,
 
         fp = calloc(1, sizeof(*fp));
         if (!fp)
-                LOG_FATAL(cb, "calloc fp");
+                NP_LOG_FATAL(cb, "calloc fp");
         fp->opts = opts;
         fp->cb = cb;
         flags_parser_add(fp, 'h', "help", "Show usage and exit", "bool",
@@ -107,7 +107,7 @@ void flags_parser_add(struct flags_parser *fp, char short_name,
 
         flag = calloc(1, sizeof(*flag));
         if (!flag)
-                LOG_FATAL(fp->cb, "calloc flag");
+                NP_LOG_FATAL(fp->cb, "calloc flag");
         flag->short_name = short_name;
         flag->long_name = remap_long_name(strdup(long_name));
         flag->usage = strdup(usage);
@@ -160,7 +160,7 @@ static void default_parser(const char *type, char *arg, void *out,
         else if (strcmp(type, "double") == 0)
                 *(double *)out = atof(arg);
         else
-                LOG_ERROR(cb, "Unknown type `%s' for arg `%s'.", type, arg);
+                NP_LOG_ERROR(cb, "Unknown type `%s' for arg `%s'.", type, arg);
 }
 
 void flags_parser_set_parser(struct flags_parser *fp, void *variable,
@@ -219,7 +219,7 @@ void flags_parser_run(struct flags_parser *fp, int argc, char **argv)
 
         flags = calloc(num_flags, sizeof(flags[0]));
         if (!flags)
-                LOG_FATAL(cb, "calloc flags");
+                NP_LOG_FATAL(cb, "calloc flags");
         i = 0;
         for (flag = fp->flags; flag; flag = flag->next)
                 flags[i++] = *flag;
@@ -243,7 +243,7 @@ void flags_parser_run(struct flags_parser *fp, int argc, char **argv)
         /* Allocate one extra element for the end of array (all zeros). */
         longopts = calloc(num_flags + 1, sizeof(longopts[0]));
         if (!longopts)
-                LOG_FATAL(cb, "calloc longopts");
+                NP_LOG_FATAL(cb, "calloc longopts");
         for (i = 0; i < num_flags; i++) {
                 longopts[i].name = flags[i].long_name;
                 longopts[i].has_arg = flags[i].has_arg;
@@ -253,7 +253,7 @@ void flags_parser_run(struct flags_parser *fp, int argc, char **argv)
 
         shortopts = calloc(num_flags*3 + 1, sizeof(char));
         if (!shortopts)
-                LOG_FATAL(cb, "calloc shortopts");
+                NP_LOG_FATAL(cb, "calloc shortopts");
         j = 0;
         for (i = 0; i < num_flags; i++) {
                 if (!isgraph(flags[i].short_name))
@@ -342,7 +342,7 @@ static void print_flag(const struct flag *flag, struct callbacks *cb)
         else if (strcmp(type, "long long") == 0)
                 PRINT(cb, name, "%lld", *(long long *)var);
         else
-                LOG_ERROR(cb, "Unknown type `%s' for variable %s", type, name);
+                NP_LOG_ERROR(cb, "Unknown type `%s' for variable %s", type, name);
 }
 
 void flags_parser_dump(struct flags_parser *fp)

@@ -70,11 +70,11 @@ struct addrinfo *do_getaddrinfo_udp(const char *host, const char *port, int flag
         hints.ai_flags = flags;
         hints.ai_protocol = 0;            /* Any protocol */
 
-        LOG_INFO(cb, "before getaddrinfo");
+        NP_LOG_INFO(cb, "before getaddrinfo");
         int s = getaddrinfo(host, port, &hints, &result);
-        LOG_INFO(cb, "after getaddrinfo");
+        NP_LOG_INFO(cb, "after getaddrinfo");
         if (s)
-                LOG_FATAL(cb, "getaddrinfo: %s", gai_strerror(s));
+                NP_LOG_FATAL(cb, "getaddrinfo: %s", gai_strerror(s));
 
         return result;
 }
@@ -97,11 +97,11 @@ struct addrinfo *do_getaddrinfo(const char *host, const char *port, int flags,
         hints.ai_flags = flags;
         hints.ai_protocol = 0;            /* Any protocol */
 
-        LOG_INFO(cb, "before getaddrinfo");
+        NP_LOG_INFO(cb, "before getaddrinfo");
         int s = getaddrinfo(host, port, &hints, &result);
-        LOG_INFO(cb, "after getaddrinfo");
+        NP_LOG_INFO(cb, "after getaddrinfo");
         if (s)
-                LOG_FATAL(cb, "getaddrinfo: %s", gai_strerror(s));
+                NP_LOG_FATAL(cb, "getaddrinfo: %s", gai_strerror(s));
 
         return result;
 }
@@ -124,7 +124,7 @@ void parse_hosts(char *str, void *out, struct callbacks *cb)
         struct host *host_array;
 
         if (NULL == str) {
-                LOG_FATAL(cb, "No hosts passed in to connect to");
+                NP_LOG_FATAL(cb, "No hosts passed in to connect to");
         }
 
         // Assume our strings will not have whitespace we have to clean-up
@@ -156,7 +156,7 @@ void parse_hosts(char *str, void *out, struct callbacks *cb)
                 char *dport = strtok(NULL, "/");
 
                 if (cport == NULL || dport == NULL || h == NULL) {
-                        LOG_FATAL(cb, "bad host format %s, should be host:port/port", tmp_bufs[i]);
+                        NP_LOG_FATAL(cb, "bad host format %s, should be host:port/port", tmp_bufs[i]);
                 }
 
                 host_array[i] = (struct host){ .host_name = strdup(h),
@@ -170,6 +170,60 @@ void parse_hosts(char *str, void *out, struct callbacks *cb)
                                            .data_port = NULL };
 
         *(struct host**)out = host_array; 
+        free(tmp_str);
+        free(tmp_bufs);
+}
+
+void parse_slaves(char *str, void *out, struct callbacks *cb)
+{
+        struct host *slave_array;
+
+        if (NULL == str) {
+                NP_LOG_FATAL(cb, "No hosts passed in to connect to");
+        }
+
+        // Assume our strings will not have whitespace we have to clean-up
+        unsigned num_hosts = 1;
+        char *fch = strchr(str, ',');
+        while (NULL != fch) {
+                num_hosts++;
+                fch = strchr(fch + 1, ',');
+        }
+
+        slave_array = (struct host*)malloc((num_hosts + 1) * sizeof(struct host));
+        char **tmp_bufs = (char **)malloc(num_hosts * sizeof(char *));
+
+        // Get all our strings representing hosts and ports
+        char *tmp_str = strdup(str);
+        char *p = strtok(tmp_str, ",");
+        unsigned idx = 0;
+        while (p != NULL) {
+                tmp_bufs[idx] = p;
+                idx++;
+                p = strtok(NULL, ",");
+        }
+
+        // Go through all the strings and parse out what we need
+        unsigned i = 0;
+        for (i = 0; i < num_hosts; i++) {
+                char *h = strtok(tmp_bufs[i], ":");
+                char *cport = strtok(NULL, ":");
+
+                if (cport == NULL || h == NULL) {
+                        NP_LOG_FATAL(cb, "bad slave format %s, should be host:port", tmp_bufs[i]);
+                }
+
+                slave_array[i] = (struct host){ .host_name = strdup(h),
+                                  .ctrl_port = strdup(cport),
+                                  .data_port = NULL };
+        }
+        // Put a null-terminator at the end of our hosts array to let other 
+        // code figure how many hosts exist
+        slave_array[num_hosts] = (struct host){ .host_name = NULL, 
+                                           .ctrl_port = NULL,
+                                           .data_port = NULL };
+
+        *(struct host**)out = slave_array; 
         free(tmp_str);
         free(tmp_bufs);
 }
@@ -190,6 +244,22 @@ void print_hosts(const char *name, const void *var, struct callbacks *cb)
         PRINT(cb, name, "%s", s);
 }
 
+void print_slaves(const char *name, const void *var, struct callbacks *cb)
+{
+        const struct host *host = *(struct host**)var;
+        char b[128] = "";
+        char s[1024] = "";
+
+        int num = hosts_len(host);
+
+        for (int i = 0; i < num; i++) {
+                sprintf(b, "%s c:%s\n", host[i].host_name, host[i].ctrl_port);
+                strcat(s, b);
+        }
+
+        PRINT(cb, name, "%s", s);
+}
+
 long long parse_rate(const char *str, struct callbacks *cb)
 {
         const struct rate_conversion *conv;
@@ -200,16 +270,16 @@ long long parse_rate(const char *str, struct callbacks *cb)
         val = strtod(str, &suffix);
         if ((errno == ERANGE && (val == HUGE_VAL || val == -HUGE_VAL)) ||
             (errno != 0 && val == 0))
-                PLOG_FATAL(cb, "strtod");
+                NP_PLOG_FATAL(cb, "strtod");
         if (suffix == str)
-                LOG_FATAL(cb, "no digits were found");
+                NP_LOG_FATAL(cb, "no digits were found");
         if (suffix[0] == '\0')
                 return val;
         for (conv = conversions; conv->prefix; conv++) {
                 if (strncmp(suffix, conv->prefix, strlen(conv->prefix)) == 0)
                         return val * conv->bytes_per_second;
         }
-        LOG_FATAL(cb, "invalid suffix `%s'", suffix);
+        NP_LOG_FATAL(cb, "invalid suffix `%s'", suffix);
         return 0;  /* unreachable */
 }
 
@@ -220,13 +290,13 @@ void set_reuseport(int fd, struct callbacks *cb)
 #define SO_REUSEPORT 15
 #endif
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)))
-                PLOG_ERROR(cb, "setsockopt(SO_REUSEPORT)");
+                NP_PLOG_ERROR(cb, "setsockopt(SO_REUSEPORT)");
 }
 
 void set_reuseaddr(int fd, int on, struct callbacks *cb)
 {
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
-                PLOG_ERROR(cb, "setsockopt(SO_REUSEADDR)");
+                NP_PLOG_ERROR(cb, "setsockopt(SO_REUSEADDR)");
 }
 
 void set_min_rto(int fd, int min_rto_ms, struct callbacks *cb)
@@ -236,13 +306,13 @@ void set_min_rto(int fd, int min_rto_ms, struct callbacks *cb)
 #define TCP_MIN_RTO 1713
 #endif
         if (setsockopt(fd, SOL_TCP, TCP_MIN_RTO, &min_rto, sizeof(min_rto)))
-                PLOG_ERROR(cb, "setsockopt(TCP_MIN_RTO)");
+                NP_PLOG_ERROR(cb, "setsockopt(TCP_MIN_RTO)");
 }
 
 void set_debug(int fd, int onoff, struct callbacks *cb)
 {
         if (setsockopt(fd, SOL_SOCKET, SO_DEBUG, &onoff, sizeof(onoff)))
-                PLOG_ERROR(cb, "setsockopt(SO_DEBUG)");
+                NP_PLOG_ERROR(cb, "setsockopt(SO_DEBUG)");
 }
 
 void set_nonblocking(int fd, struct callbacks *cb)
@@ -251,7 +321,7 @@ void set_nonblocking(int fd, struct callbacks *cb)
         if (flags == -1)
                 flags = 0;
         if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
-                PLOG_FATAL(cb, "fcntl");
+                NP_PLOG_FATAL(cb, "fcntl");
 }
 
 void set_local_host(int fd, struct options *opts, struct callbacks *cb)
@@ -265,10 +335,10 @@ void set_local_host(int fd, struct options *opts, struct callbacks *cb)
         for (rp = result; rp; rp = rp->ai_next) {
                 if (bind(fd, rp->ai_addr, rp->ai_addrlen) == 0)
                         goto done;
-                PLOG_ERROR(cb, "bind");
+                NP_PLOG_ERROR(cb, "bind");
                 do_close(fd);
         }
-        LOG_FATAL(cb, "Could not bind");
+        NP_LOG_FATAL(cb, "Could not bind");
 done:
         freeaddrinfo(result);
 }
@@ -278,9 +348,9 @@ int procfile_int(const char *path, struct callbacks *cb)
         int result = 0;
         FILE *f = fopen(path, "r");
         if (!f)
-                PLOG_FATAL(cb, "fopen '%s'", path);
+                NP_PLOG_FATAL(cb, "fopen '%s'", path);
         if (fscanf(f, "%d", &result) != 1)
-		PLOG_FATAL(cb, "fscanf");
+		NP_PLOG_FATAL(cb, "fscanf");
         fclose(f);
         return result;
 }
@@ -343,7 +413,7 @@ void reset_port(struct addrinfo *ai, int port, struct callbacks *cb)
         else if (ai->ai_addr->sa_family == AF_INET6)
                 ((struct sockaddr_in6 *)ai->ai_addr)->sin6_port = htons(port);
         else
-                LOG_FATAL(cb, "invalid sa_family %d", ai->ai_addr->sa_family);
+                NP_LOG_FATAL(cb, "invalid sa_family %d", ai->ai_addr->sa_family);
 }
 
 void reset_port_udp(struct addrinfo **ai, struct host *host, struct options *options, int flags, struct callbacks *cb)
@@ -370,14 +440,14 @@ retry:
                 if (sfd == -1) {
                         if (errno == EMFILE || errno == ENFILE ||
                             errno == ENOBUFS || errno == ENOMEM)
-                                PLOG_FATAL(cb, "socket");
+                                NP_PLOG_FATAL(cb, "socket");
                         /* Other errno's are not fatal. */
-                        PLOG_ERROR(cb, "socket");
+                        NP_PLOG_ERROR(cb, "socket");
                         continue;
                 }
                 if (do_connect(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
                         break;
-                PLOG_ERROR(cb, "connect %s:%s", host, port);
+                NP_PLOG_ERROR(cb, "connect %s:%s", host, port);
                 do_close(sfd);
         }
         if (rp == NULL) {
@@ -385,7 +455,7 @@ retry:
                         sleep(1);
                         goto retry;
                 }
-                LOG_FATAL(cb, "Could not connect to %s:%s", host, port);
+                NP_LOG_FATAL(cb, "Could not connect to %s:%s", host, port);
         }
         *ai = copy_addrinfo(rp);
         freeaddrinfo(result);

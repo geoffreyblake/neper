@@ -37,13 +37,13 @@ static inline void epoll_ctl_or_die(int epfd, int op, int fd,
                                     struct callbacks *cb)
 {
         if (epoll_ctl(epfd, op, fd, ev))
-                PLOG_FATAL(cb, "epoll_ctl");
+                NP_PLOG_FATAL(cb, "epoll_ctl");
 }
 
 static inline void epoll_del_or_err(int epfd, int fd, struct callbacks *cb)
 {
         if (epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL))
-                PLOG_ERROR(cb, "epoll_ctl");
+                NP_PLOG_ERROR(cb, "epoll_ctl");
 }
 
 static inline double seconds_between(struct timespec *a, struct timespec *b)
@@ -93,5 +93,8 @@ int create_suicide_timeout(int sec_to_suicide);
 void parse_hosts(char *str, void *out, struct callbacks *cb);
 void print_hosts(const char *name, const void *var, struct callbacks *cb);
 int hosts_len(const struct host *array);
+
+void parse_slaves(char *str, void *out, struct callbacks *cb);
+void print_slaves(const char *name, const void *var, struct callbacks *cb);
 
 #endif

@@ -83,7 +83,10 @@ struct options {
         long long max_pacing_rate;
         const char *local_host;
         struct host *host;
+        struct host *slaves;
+        bool slave_mode;
         const char *control_port;
+        const char *peer_port;
         const char *port;
         const char *all_samples;
 
@@ -101,6 +104,7 @@ struct options {
         /* udp_flood */
         int burst_size;
         int packet_size;
+        bool rr_hosts;
 };
 
 int tcp_stream(struct options *opts, struct callbacks *cb);
