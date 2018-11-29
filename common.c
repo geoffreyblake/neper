@@ -232,7 +232,7 @@ void print_hosts(const char *name, const void *var, struct callbacks *cb)
 {
         const struct host *host = *(struct host**)var;
         char b[128] = "";
-        char s[1024] = "";
+        char s[65536] = "";
 
         int num = hosts_len(host);
 

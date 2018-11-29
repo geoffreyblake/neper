@@ -324,7 +324,7 @@ struct host* peer_control_start(struct peer_control *pc)
                                 if (pc->peer_conn[i] == NULL) {
                                         NP_LOG_FATAL(pc->cb, "failed to connect to %s", endpoint);
                                 }
-                                NP_LOG_INFO(pc->cb, "connected to peer port on %s:%d", pc->slaves[i].host_name,
+                                NP_LOG_INFO(pc->cb, "connected to peer port on %s:%s", pc->slaves[i].host_name,
                                          pc->slaves[i].ctrl_port);
 
                                 zmsg_t *msg = zmsg_new();
@@ -390,12 +390,12 @@ void peer_control_wait_for_signal(struct peer_control *pc) {
                          
                         NP_LOG_INFO(pc->cb, "received notification");
                 } else {
-                        zframe_t *frame = zframe_from("GO");
-                        zmsg_t *msg = zmsg_new();
-                        zmsg_append(msg, &frame);
-
                         // Send all the peers a notification leader is ready
                         for (int i = 0; i < pc->num_slaves; i++) {
+                                zframe_t *frame = zframe_from("GO");
+                                zmsg_t *msg = zmsg_new();
+                                zmsg_append(msg, &frame);
+
                                 rc = zmsg_send(&msg, pc->peer_conn[i]);
                                 if (rc != 0) {
                                         NP_LOG_FATAL(pc->cb, "ZSend failed");
@@ -404,7 +404,7 @@ void peer_control_wait_for_signal(struct peer_control *pc) {
                         }
  
                         for (int i = 0; i < pc->num_slaves; i++) {
-                                msg = zmsg_recv(pc->peer_conn[i]);
+                                zmsg_t *msg = zmsg_recv(pc->peer_conn[i]);
                                 assert(zmsg_size(msg) == 1);
                                 char *m = zmsg_popstr(msg);
                                 if (strcmp("ACK", m)) {
@@ -461,16 +461,15 @@ void peer_control_wait_for_stats(struct peer_control *pc, struct thread *tinfo) 
                         agg.transactions = 0;
                         agg.sent_transactions = 0;
 
-                        zmsg_t *msg = zmsg_new();
-                        zmsg_pushstr(msg, "SENDSTATS");
-
                         // Tell our peers to send us their stats
                         for (int i = 0; i < pc->num_slaves; i++) {
+                                zmsg_t *msg = zmsg_new();
+                                zmsg_pushstr(msg, "SENDSTATS");
                                 zmsg_send(&msg, pc->peer_conn[i]);
                         }
 
                         for (int i = 0; i < pc->num_slaves; i++) {
-                                msg = zmsg_recv(pc->peer_conn[i]);
+                                zmsg_t *msg = zmsg_recv(pc->peer_conn[i]);
                                 zframe_t *frame = zmsg_pop(msg);
                                 struct mini_stats *s = (struct mini_stats*)zframe_data(frame);
 
